@@ -1,0 +1,11 @@
+[package]
+name = "warcaby"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+color-eyre = "0.6.5"
+crossterm = "0.29.0"
+minimax = "0.5.4"
+ratatui = "0.29.0"
