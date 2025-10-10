@@ -19,6 +19,13 @@ pub enum Piece {
     White,
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum Winner {
+    Won(Turn),
+    Draw,
+    InProgress,
+}
+
 impl Piece {
     pub fn opposite(self) -> Self {
         match self {
@@ -44,22 +51,37 @@ impl Turn {
 }
 
 impl Checkers {
+    /// Create a new game board, with the given piece color for the [`Player`](Turn::Player).
+    /// The convention assumed here is [`Player`](Turn::Player) is always at the bottom,
+    /// and [`AI`](Turn::Ai) is always at the top.
+    ///
+    /// (Bottom and top referring here to the row index, with "top" row being index 0,
+    /// and "bottom" row being BOARD_SIZE - 1)
+    ///
+    /// A visialization of the board could choose to display the board differently,
+    /// or to give control over the [`AI`](Turn::Ai) pieces.
     pub fn new(player: Piece) -> Self {
-        let mut board = [[None; BOARD_SIZE]; BOARD_SIZE];
-
-        for y in 0..BOARD_SIZE {
+        let board = std::array::from_fn(|y| {
             if let 3 | 4 = y {
-                continue;
-            }
-            let start = !y & 1;
-            for x in (start..BOARD_SIZE).step_by(2) {
-                board[y][x] = Some(if y < BOARD_SIZE / 2 {
+                // Rows 3 and 4 are always fully empty.
+                [None; BOARD_SIZE]
+            } else {
+                // For all other rows, the cell has a piece when:
+                //   - For even rows, if the column is odd
+                //   - For odd rows, if the column is even
+                let offset = !y & 1; // offset will be 1 for even rows, and 0 for odd
+                // Upper half is always the AI, lower half is always the human player
+                let piece = if y < BOARD_SIZE / 2 {
                     player.opposite()
                 } else {
                     player
-                });
+                };
+                // Set piece on the cell if x + offset is even.
+                // Thus for even rows, this will be cells 1, 3, 5, ...
+                // and for odd rows this will be cells 0, 2, 4, ...
+                std::array::from_fn(|x| ((x + offset) & 1 == 0).then_some(piece))
             }
-        }
+        });
 
         let turn = if player == Piece::White {
             Turn::Player
@@ -74,22 +96,29 @@ impl Checkers {
         }
     }
 
+    /// Returns who'll move next.
     pub fn turn(&self) -> Turn {
         self.turn
     }
 
+    /// Returns given cell of the board.
     pub fn cell(&self, (y, x): (usize, usize)) -> Option<Piece> {
         self.board[y][x]
     }
 
+    /// Returns the color of player's pieces.
     pub fn player(&self) -> Piece {
         self.player
     }
 
+    /// Returns an iterator over all rows of the board.
+    /// Indexing starts at 0.
     pub fn iter_rows(&self) -> impl Iterator<Item = (usize, &[Option<Piece>; BOARD_SIZE])> {
         self.board.iter().enumerate()
     }
 
+    /// Returns an iterator over all cells of the board.
+    /// Indexing, both for rows and columns, starts at 0.
     pub fn iter_board(&self) -> impl Iterator<Item = (usize, usize, Option<Piece>)> {
         self.board
             .iter()
@@ -97,6 +126,8 @@ impl Checkers {
             .flat_map(|(y, row)| row.iter().enumerate().map(move |(x, &cell)| (y, x, cell)))
     }
 
+    /// Returns an iterator over all pieces still on the board.
+    /// Indexing, both for rows and columns, starts at 0.
     pub fn iter_pieces(&self) -> impl Iterator<Item = (usize, usize, Piece)> {
         self.iter_board().filter_map(|(y, x, cell)| {
             let piece = cell?;
@@ -104,6 +135,8 @@ impl Checkers {
         })
     }
 
+    /// Validates and normalizes a move (e.g. moving it over an opponent, if possible).
+    /// For invalid moves returns None.
     fn maybe_move(
         &self,
         who: Piece,
@@ -112,12 +145,12 @@ impl Checkers {
         dx: isize,
         final_move: bool,
     ) -> Option<Move> {
-        debug_assert_eq!(Some(who), self.board[pos.0][pos.1]);
+        debug_assert_eq!(Some(who), self.cell(pos));
 
         let new_y = pos.0.checked_add_signed(dy).filter(|&n| n < BOARD_SIZE)?;
         let new_x = pos.1.checked_add_signed(dx).filter(|&n| n < BOARD_SIZE)?;
 
-        match self.board[new_y][new_x] {
+        match self.cell((new_y, new_x)) {
             None => Some(Move {
                 from: pos,
                 d: (dy, dx),
@@ -127,6 +160,7 @@ impl Checkers {
         }
     }
 
+    /// Returns all valid [`Move`]s for the given color, given the current state of the game.
     pub fn valid_moves(&self, who: Piece) -> Vec<Move> {
         let going_up = who == self.player;
 
@@ -149,6 +183,7 @@ impl Checkers {
         moves
     }
 
+    /// Returns color of the piece who'll move next.
     pub fn piece_for_turn(&self) -> Piece {
         match self.turn {
             Turn::Player => self.player,
@@ -156,6 +191,11 @@ impl Checkers {
         }
     }
 
+    /// Returns a copy of the board, after applying a valid [`Move`].
+    ///
+    /// # Panics
+    ///
+    /// Panics if the given [`Move`] goes out of bounds.
     pub fn apply_move(&self, m: Move) -> Self {
         let mut board = self.board;
 
@@ -186,7 +226,7 @@ impl Checkers {
     /// The winner is decided in one of those cases:
     ///   - When the other player has lost all of their pieces
     ///   - When the player has reached the end of the board with one of their pieces
-    pub fn get_winner(&self) -> Option<Turn> {
+    pub fn get_winner(&self) -> Winner {
         let black_won = if self.player == Piece::Black {
             Turn::Player
         } else {
@@ -202,10 +242,10 @@ impl Checkers {
             acc
         });
         if black_count == 0 {
-            return Some(black_won.opposite());
+            return Winner::Won(black_won.opposite());
         }
         if white_count == 0 {
-            return Some(black_won);
+            return Winner::Won(black_won);
         }
 
         // Second condition
@@ -214,16 +254,22 @@ impl Checkers {
             .iter()
             .any(|cell| cell.is_some_and(|piece| piece == self.player));
         if player_won {
-            return Some(Turn::Player);
+            return Winner::Won(Turn::Player);
         }
 
         let ai_won = self.board[BOARD_SIZE - 1]
             .iter()
             .any(|cell| cell.is_some_and(|piece| piece == self.player.opposite()));
         if ai_won {
-            return Some(Turn::Ai);
+            return Winner::Won(Turn::Ai);
         }
 
-        None
+        // If none of the win conditions are met, check if the next player has any valid moves left,
+        // to determine whether the game ended in draw
+        if self.valid_moves(self.piece_for_turn()).is_empty() {
+            Winner::Draw
+        } else {
+            Winner::InProgress
+        }
     }
 }

@@ -13,7 +13,7 @@ use ratatui::{
 
 use crate::{
     ai::CheckerEval,
-    game::{BOARD_SIZE, Checkers, Move, Piece, Turn},
+    game::{BOARD_SIZE, Checkers, Move, Piece, Turn, Winner},
 };
 
 mod ai;
@@ -222,8 +222,7 @@ impl InGame {
                     .collect();
             }
             KeyCode::Char(' ') | KeyCode::Enter
-                if self.moving_piece.is_some()
-                    && self.valid_moves.iter().any(|&m| m == self.selected) =>
+                if self.moving_piece.is_some() && self.valid_moves.contains(&self.selected) =>
             {
                 let from = self.moving_piece.unwrap();
                 let d = (
@@ -237,12 +236,14 @@ impl InGame {
                 self.moving_piece = None;
                 self.valid_moves = Vec::new();
 
-                if let Some(winner) = self.game.get_winner() {
-                    debug_assert_eq!(winner, Turn::Player);
-                    return EventResult::End(GameEnded::won());
+                match self.game.get_winner() {
+                    Winner::Won(winner) => {
+                        debug_assert_eq!(winner, Turn::Player);
+                        return EventResult::End(GameEnded::won());
+                    }
+                    Winner::Draw => return EventResult::End(GameEnded::draw()),
+                    Winner::InProgress => return self.ai_turn(),
                 }
-
-                return self.ai_turn();
             }
             KeyCode::Char(' ') | KeyCode::Enter | KeyCode::Esc => {
                 self.moving_piece = None;
@@ -258,18 +259,14 @@ impl InGame {
         let move_to_do = self.ai.choose_move(&self.game).unwrap();
         self.game = self.game.apply_move(move_to_do);
 
-        if let Some(winner) = self.game.get_winner() {
-            debug_assert_eq!(winner, Turn::Ai);
-            return EventResult::End(GameEnded::lost());
+        match self.game.get_winner() {
+            Winner::Won(winner) => {
+                debug_assert_eq!(winner, Turn::Ai);
+                EventResult::End(GameEnded::lost())
+            }
+            Winner::Draw => EventResult::End(GameEnded::draw()),
+            Winner::InProgress => EventResult::Continue,
         }
-
-        // If after AI plays the player has no more valid moves,
-        // that must mean the game ended in a draw
-        if self.game.valid_moves(self.game.piece_for_turn()).is_empty() {
-            return EventResult::End(GameEnded::draw());
-        }
-
-        EventResult::Continue
     }
 
     fn render(&mut self, frame: &mut Frame) {
@@ -279,7 +276,7 @@ impl InGame {
                 let bg = if is_dark { Color::Green } else { Color::Gray };
                 let style = Style::new().bg(bg);
                 let Some(piece) = cell else {
-                    let content = if self.valid_moves.iter().any(|&p| p == (y, x)) {
+                    let content = if self.valid_moves.contains(&(y, x)) {
                         " ● "
                     } else {
                         ""
