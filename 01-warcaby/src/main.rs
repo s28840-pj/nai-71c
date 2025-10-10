@@ -11,188 +11,13 @@ use ratatui::{
     widgets::{Cell, List, ListState, Row, Table, TableState},
 };
 
-use crate::ai::CheckerEval;
-
-const BOARD_SIZE: usize = 8;
+use crate::{
+    ai::CheckerEval,
+    game::{BOARD_SIZE, Checkers, Move, Piece, Turn},
+};
 
 mod ai;
-
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-enum Piece {
-    Black,
-    White,
-}
-
-impl Piece {
-    fn opposite(self) -> Self {
-        match self {
-            Piece::Black => Piece::White,
-            Piece::White => Piece::Black,
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Turn {
-    Player,
-    Ai,
-}
-
-impl Turn {
-    fn opposite(self) -> Self {
-        match self {
-            Turn::Player => Turn::Ai,
-            Turn::Ai => Turn::Player,
-        }
-    }
-}
-
-#[derive(Clone)]
-pub struct Checkers {
-    board: [[Option<Piece>; BOARD_SIZE]; BOARD_SIZE],
-    player: Piece,
-    turn: Turn,
-}
-
-#[derive(Debug, Clone, Copy)]
-pub struct Move {
-    from: (usize, usize),
-    d: (isize, isize),
-}
-
-impl Checkers {
-    fn maybe_move(
-        &self,
-        who: Piece,
-        pos: (usize, usize),
-        dy: isize,
-        dx: isize,
-        final_move: bool,
-    ) -> Option<Move> {
-        debug_assert_eq!(Some(who), self.board[pos.0][pos.1]);
-
-        let new_y = pos.0.checked_add_signed(dy).filter(|&n| n < BOARD_SIZE)?;
-        let new_x = pos.1.checked_add_signed(dx).filter(|&n| n < BOARD_SIZE)?;
-
-        match self.board[new_y][new_x] {
-            None => Some(Move {
-                from: pos,
-                d: (dy, dx),
-            }),
-            Some(p) if p == who || final_move => None,
-            Some(_) => self.maybe_move(who, pos, dy * 2, dx * 2, true),
-        }
-    }
-
-    fn valid_moves(&self, who: Piece) -> Vec<Move> {
-        let going_up = who == self.player;
-
-        let piece_positions = self.board.iter().enumerate().flat_map(|(y, row)| {
-            row.iter()
-                .enumerate()
-                .filter_map(move |(x, cell)| match cell {
-                    Some(p) if *p == who => Some((y, x)),
-                    _ => None,
-                })
-        });
-
-        let mut moves = Vec::new();
-
-        let dy = if going_up { -1 } else { 1 };
-        for pos in piece_positions {
-            if let Some(left) = self.maybe_move(who, pos, dy, -1, false) {
-                moves.push(left);
-            }
-            if let Some(right) = self.maybe_move(who, pos, dy, 1, false) {
-                moves.push(right);
-            }
-        }
-
-        moves
-    }
-
-    fn piece_for_turn(&self) -> Piece {
-        match self.turn {
-            Turn::Player => self.player,
-            Turn::Ai => self.player.opposite(),
-        }
-    }
-
-    fn apply_move(&self, m: Move) -> Self {
-        let mut board = self.board;
-
-        if m.d.0.abs() > 1 {
-            let d = (m.d.0 / 2, m.d.1 / 2);
-            let y = m.from.0.checked_add_signed(d.0).unwrap();
-            let x = m.from.1.checked_add_signed(d.1).unwrap();
-
-            debug_assert_ne!(board[y][x], None);
-            board[y][x] = None;
-        }
-
-        let y = m.from.0.checked_add_signed(m.d.0).unwrap();
-        let x = m.from.1.checked_add_signed(m.d.1).unwrap();
-
-        debug_assert_eq!(board[y][x], None);
-        board[y][x] = board[m.from.0][m.from.1];
-        board[m.from.0][m.from.1] = None;
-
-        Checkers {
-            board,
-            player: self.player,
-            turn: self.turn.opposite(),
-        }
-    }
-
-    /// Returns which player (if any) has won the game.
-    /// The winner is decided in one of those cases:
-    ///   - When the other player has lost all of their pieces
-    ///   - When the player has reached the end of the board with one of their pieces
-    fn get_winner(&self) -> Option<Turn> {
-        let black_won = if self.player == Piece::Black {
-            Turn::Player
-        } else {
-            Turn::Ai
-        };
-
-        // First condition
-        let (black_count, white_count) = self
-            .board
-            .iter()
-            .flat_map(|row| row.iter().filter_map(|cell| *cell))
-            .fold((0, 0), |mut acc, curr| {
-                match curr {
-                    Piece::Black => acc.0 += 1,
-                    Piece::White => acc.1 += 1,
-                };
-                acc
-            });
-        if black_count == 0 {
-            return Some(black_won.opposite());
-        }
-        if white_count == 0 {
-            return Some(black_won);
-        }
-
-        // Second condition
-        // Player pieces are always at the bottom and go towards the top
-        let player_won = self.board[0]
-            .iter()
-            .any(|cell| cell.is_some_and(|piece| piece == self.player));
-        if player_won {
-            return Some(Turn::Player);
-        }
-
-        let ai_won = self.board[BOARD_SIZE - 1]
-            .iter()
-            .any(|cell| cell.is_some_and(|piece| piece == self.player.opposite()));
-        if ai_won {
-            return Some(Turn::Ai);
-        }
-
-        None
-    }
-}
+mod game;
 
 type AI = Negamax<CheckerEval>;
 
@@ -317,38 +142,6 @@ impl App {
     }
 }
 
-impl Checkers {
-    fn new(player: Piece) -> Self {
-        let mut board = [[None; BOARD_SIZE]; BOARD_SIZE];
-
-        for y in 0..BOARD_SIZE {
-            if let 3 | 4 = y {
-                continue;
-            }
-            let start = !y & 1;
-            for x in (start..BOARD_SIZE).step_by(2) {
-                board[y][x] = Some(if y < BOARD_SIZE / 2 {
-                    player.opposite()
-                } else {
-                    player
-                });
-            }
-        }
-
-        let turn = if player == Piece::White {
-            Turn::Player
-        } else {
-            Turn::Ai
-        };
-
-        Checkers {
-            board,
-            player,
-            turn,
-        }
-    }
-}
-
 #[must_use]
 enum EventResult<S> {
     Continue,
@@ -368,7 +161,7 @@ impl InGame {
             ai,
         };
 
-        if state.game.turn == Turn::Ai {
+        if state.game.turn() == Turn::Ai {
             let res = state.ai_turn();
             // Game should never end after the first turn
             debug_assert!(matches!(res, EventResult::Continue));
@@ -406,13 +199,15 @@ impl InGame {
             }
             KeyCode::Char('k') | KeyCode::Up if self.selected.0 > 0 => self.selected.0 -= 1,
             KeyCode::Char(' ') | KeyCode::Enter
-                if self.game.board[self.selected.0][self.selected.1]
-                    .is_some_and(|p| p == self.game.player) =>
+                if self
+                    .game
+                    .cell(self.selected)
+                    .is_some_and(|p| p == self.game.player()) =>
             {
                 self.moving_piece = Some(self.selected);
                 self.valid_moves = self
                     .game
-                    .valid_moves(self.game.player)
+                    .valid_moves(self.game.player())
                     .iter()
                     .filter_map(|m| {
                         if m.from == self.selected {
@@ -437,7 +232,7 @@ impl InGame {
                 );
                 let move_to_do = Move { from, d };
 
-                debug_assert_eq!(self.game.turn, Turn::Player);
+                debug_assert_eq!(self.game.turn(), Turn::Player);
                 self.game = self.game.apply_move(move_to_do);
                 self.moving_piece = None;
                 self.valid_moves = Vec::new();
@@ -459,7 +254,7 @@ impl InGame {
     }
 
     fn ai_turn(&mut self) -> EventResult<GameEnded> {
-        debug_assert_eq!(self.game.turn, Turn::Ai);
+        debug_assert_eq!(self.game.turn(), Turn::Ai);
         let move_to_do = self.ai.choose_move(&self.game).unwrap();
         self.game = self.game.apply_move(move_to_do);
 
@@ -478,7 +273,7 @@ impl InGame {
     }
 
     fn render(&mut self, frame: &mut Frame) {
-        let rows = self.game.board.iter().enumerate().map(|(y, row)| {
+        let rows = self.game.iter_rows().map(|(y, row)| {
             Row::new(row.iter().enumerate().map(|(x, cell)| {
                 let is_dark = x & 1 == !y & 1;
                 let bg = if is_dark { Color::Green } else { Color::Gray };

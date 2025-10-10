@@ -16,7 +16,7 @@ impl minimax::Game for CheckersRules {
     }
 
     fn get_winner(state: &Self::S) -> Option<minimax::Winner> {
-        let just_played = state.turn.opposite();
+        let just_played = state.turn().opposite();
         state.get_winner().map(|winner| {
             // If our logic is sound, the winner always will be the player that just moved
             debug_assert_eq!(winner, just_played);
@@ -36,20 +36,15 @@ impl minimax::Evaluator for CheckerEval {
     fn evaluate(&self, s: &<Self::G as minimax::Game>::S) -> minimax::Evaluation {
         let to_move = s.piece_for_turn();
 
-        s.board
-            .iter()
-            .enumerate()
-            .flat_map(|(y, row)| {
-                row.iter().filter_map(move |&cell| {
-                    let piece = cell?;
-                    let value = if piece == s.player {
-                        BOARD_SIZE - y
-                    } else {
-                        y + 1
-                    } as i16;
-                    let mult = if to_move == piece { 2 } else { -3 };
-                    Some(value * mult)
-                })
+        s.iter_pieces()
+            .map(|(y, _, piece)| {
+                let value = if piece == s.player() {
+                    BOARD_SIZE - y
+                } else {
+                    y + 1
+                } as i16;
+                let mult = if to_move == piece { 2 } else { -3 };
+                value * mult
             })
             .sum()
     }
