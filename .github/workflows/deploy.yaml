@@ -10,7 +10,7 @@ on:
     branches: [main]
 
 jobs:
-  build:
+  docs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -20,3 +20,20 @@ jobs:
         with:
           path: result
       - uses: actions/deploy-pages@v4
+
+  build:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: cachix/install-nix-action@v31
+      - run: |
+          nix-build nix -A bins.static
+          mkdir -p to-upload/nai-71c
+          cp -r result/* to-upload/nai-71c/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: "${{ matrix.os }}-static"
+          path: to-upload
