@@ -26,6 +26,12 @@ pub enum Winner {
     InProgress,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Turn {
+    Player,
+    Ai,
+}
+
 impl Piece {
     pub fn opposite(self) -> Self {
         match self {
@@ -33,12 +39,6 @@ impl Piece {
             Piece::White => Piece::Black,
         }
     }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Turn {
-    Player,
-    Ai,
 }
 
 impl Turn {
@@ -145,11 +145,16 @@ impl Checkers {
         dx: isize,
         final_move: bool,
     ) -> Option<Move> {
+        /// Validate target coordinates first (avoid panics).
         debug_assert_eq!(Some(who), self.cell(pos));
 
         let new_y = pos.0.checked_add_signed(dy).filter(|&n| n < BOARD_SIZE)?;
         let new_x = pos.1.checked_add_signed(dx).filter(|&n| n < BOARD_SIZE)?;
 
+        // If the target cell is empty, this is a valid move.
+        // If it's occupied by an opponent, try to jump over it (double the delta).
+        // If it's occupied by our own piece or we've already tried a jump (final_move),
+        // the move is invalid.
         match self.cell((new_y, new_x)) {
             None => Some(Move {
                 from: pos,
@@ -199,7 +204,9 @@ impl Checkers {
     pub fn apply_move(&self, m: Move) -> Self {
         let mut board = self.board;
 
+        /// If the move is a jump (distance > 1), remove the jumped piece.
         if m.d.0.abs() > 1 {
+            /// Get the coordinates of the jumped piece.
             let d = (m.d.0 / 2, m.d.1 / 2);
             let y = m.from.0.checked_add_signed(d.0).unwrap();
             let x = m.from.1.checked_add_signed(d.1).unwrap();
@@ -208,6 +215,7 @@ impl Checkers {
             board[y][x] = None;
         }
 
+        /// Move the piece to the target cell and clear the source cell.
         let y = m.from.0.checked_add_signed(m.d.0).unwrap();
         let x = m.from.1.checked_add_signed(m.d.1).unwrap();
 
@@ -215,6 +223,7 @@ impl Checkers {
         board[y][x] = board[m.from.0][m.from.1];
         board[m.from.0][m.from.1] = None;
 
+        /// Switch turn to the other player.
         Checkers {
             board,
             player: self.player,
@@ -233,7 +242,8 @@ impl Checkers {
             Turn::Ai
         };
 
-        // First condition
+        /// First condition
+        /// One side has no pieces left.
         let (black_count, white_count) = self.iter_pieces().fold((0, 0), |mut acc, (.., curr)| {
             match curr {
                 Piece::Black => acc.0 += 1,
@@ -248,8 +258,9 @@ impl Checkers {
             return Winner::Won(black_won);
         }
 
-        // Second condition
-        // Player pieces are always at the bottom and go towards the top
+        /// Second condition
+        /// Player pieces are always at the bottom and go towards the top
+        /// Check if any of the player's pieces reached the top row
         let player_won = self.board[0]
             .iter()
             .any(|cell| cell.is_some_and(|piece| piece == self.player));
@@ -257,6 +268,7 @@ impl Checkers {
             return Winner::Won(Turn::Player);
         }
 
+        /// Check if any of the AI's pieces reached the bottom row
         let ai_won = self.board[BOARD_SIZE - 1]
             .iter()
             .any(|cell| cell.is_some_and(|piece| piece == self.player.opposite()));
@@ -264,8 +276,8 @@ impl Checkers {
             return Winner::Won(Turn::Ai);
         }
 
-        // If none of the win conditions are met, check if the next player has any valid moves left,
-        // to determine whether the game ended in draw
+        /// If none of the win conditions are met, check if the next player has any valid moves left,
+        /// to determine whether the game ended in draw
         if self.valid_moves(self.piece_for_turn()).is_empty() {
             Winner::Draw
         } else {

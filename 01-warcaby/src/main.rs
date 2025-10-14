@@ -2,7 +2,7 @@
 
 use color_eyre::eyre::Result;
 use crossterm::event::{self, Event, KeyCode, KeyEvent};
-use minimax::{Negamax, Strategy};
+use minimax::Negamax;
 use ratatui::{
     DefaultTerminal, Frame,
     layout::{Constraint, Flex, Layout},
@@ -161,9 +161,10 @@ impl InGame {
             ai,
         };
 
+        /// If AI moves first, perform its move immediately.
         if state.game.turn() == Turn::Ai {
             let res = state.ai_turn();
-            // Game should never end after the first turn
+            /// Game should never end after the first turn
             debug_assert!(matches!(res, EventResult::Continue));
         }
 
@@ -186,6 +187,7 @@ impl InGame {
     }
 
     fn handle_key(&mut self, event: KeyEvent) -> EventResult<GameEnded> {
+        /// Handle keyboard navigation, selection, confirmation and cancellation.
         match event.code {
             KeyCode::Char('q') => return EventResult::Quit,
             KeyCode::Char('h') | KeyCode::Left if self.selected.1 > 0 => {
@@ -204,6 +206,7 @@ impl InGame {
                     .cell(self.selected)
                     .is_some_and(|p| p == self.game.player()) =>
             {
+                /// Start moving: mark source and compute valid destinations for that piece.
                 self.moving_piece = Some(self.selected);
                 self.valid_moves = self
                     .game
@@ -224,6 +227,7 @@ impl InGame {
             KeyCode::Char(' ') | KeyCode::Enter
                 if self.moving_piece.is_some() && self.valid_moves.contains(&self.selected) =>
             {
+                /// Confirm move: build the Move from selected source->dest and apply it.
                 let from = self.moving_piece.unwrap();
                 let d = (
                     self.selected.0 as isize - from.0 as isize,
@@ -246,6 +250,7 @@ impl InGame {
                 }
             }
             KeyCode::Char(' ') | KeyCode::Enter | KeyCode::Esc => {
+                /// Cancel any in-progress selection/move.
                 self.moving_piece = None;
                 self.valid_moves = Vec::new();
             }
@@ -255,6 +260,7 @@ impl InGame {
     }
 
     fn ai_turn(&mut self) -> EventResult<GameEnded> {
+        /// Let the AI pick its move and apply it, then check for end condition.
         debug_assert_eq!(self.game.turn(), Turn::Ai);
         let move_to_do = self.ai.choose_move(&self.game).unwrap();
         self.game = self.game.apply_move(move_to_do);
@@ -270,6 +276,7 @@ impl InGame {
     }
 
     fn render(&mut self, frame: &mut Frame) {
+        /// Draw board cells, pieces, highlight valid destinations and currently moving piece.
         let rows = self.game.iter_rows().map(|(y, row)| {
             Row::new(row.iter().enumerate().map(|(x, cell)| {
                 let is_dark = x & 1 == !y & 1;
@@ -290,6 +297,7 @@ impl InGame {
                 if let Some(pos) = self.moving_piece
                     && pos == (y, x)
                 {
+                    /// Change the board color for the piece currently selected for movement.
                     style = style.bg(Color::Blue);
                 }
                 Cell::new(" ⬤ ").style(style)
