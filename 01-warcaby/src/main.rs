@@ -2,7 +2,7 @@
 
 use color_eyre::eyre::Result;
 use crossterm::event::{self, Event, KeyCode, KeyEvent};
-use minimax::Negamax;
+use minimax::{Negamax,Strategy};
 use ratatui::{
     DefaultTerminal, Frame,
     layout::{Constraint, Flex, Layout},
