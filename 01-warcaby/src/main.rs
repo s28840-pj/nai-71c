@@ -1,8 +1,8 @@
-//! Simplified implementation of the game checkers in the terminal.
+#![doc = include_str!("../README.md")]
 
 use color_eyre::eyre::Result;
 use crossterm::event::{self, Event, KeyCode, KeyEvent};
-use minimax::{Negamax,Strategy};
+use minimax::{Negamax, Strategy};
 use ratatui::{
     DefaultTerminal, Frame,
     layout::{Constraint, Flex, Layout},
