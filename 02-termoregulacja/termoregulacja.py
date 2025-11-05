@@ -57,7 +57,7 @@ def createFuzzySys():
 
     return simulation, (tempInside, tempOutside, humidity, acPower, heaterPower)
 
-def run_simulation(simulation, tempIn, tempOut, humid):
+def runSimulation(simulation, tempIn, tempOut, humid):
     simulation.input['tempInside'] = tempIn
     simulation.input['tempOutside'] = tempOut
     simulation.input['humidity'] = humid
@@ -72,10 +72,26 @@ def run_simulation(simulation, tempIn, tempOut, humid):
         "heaterPower": round(heaterValue, 2)
     }
 
+def getUserInput(prompt, minValue, maxValue):
+    while True:
+        try:
+            value = float(input(prompt))
+            if value < minValue or value > maxValue:
+                print(f"Wartość spoza zakresu: ({minValue}/{maxValue}). Spróbuj ponownie.")
+            else:
+                return value
+        except ValueError:
+            print("Nieprawidłowa wartość. Wpisz liczbę.")
+
 if __name__ == "__main__":
     simulation, _ = createFuzzySys()
 
-    result = run_simulation(simulation, 15, 25, 60)
+    tempIn = getUserInput("Temperatura wewnętrzna [C] (0/40): ", 0, 40)
+    tempOut = getUserInput("Temperatura zewnętrzna [C] (-10/40): ", -10, 40)
+    humid = getUserInput("Wilgotność [%] (0-100): ", 0, 100)
+    
+    result = runSimulation(simulation, tempIn, tempOut, humid)
 
-    print(f"AC: {result['acPower']} %")
-    print(f"Heater: {result['heaterPower']} %")
+    print("Wyniki symulacji:")
+    print(f"Klimatyzacja: {result['acPower']} %")
+    print(f"Ogrzewanie: {result['heaterPower']} %")
