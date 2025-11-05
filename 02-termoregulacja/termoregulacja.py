@@ -1,16 +1,54 @@
+"""
+Projekt: System sterowania klimatyzacją i ogrzewaniem z użyciem logiki rozmytej.
+
+Opis:
+System przyjmuje trzy dane wejściowe:
+ - temperaturę wewnętrzną,
+ - temperaturę zewnętrzną,
+ - wilgotność.
+
+Oraz generuje dwa wyjścia:
+ - moc klimatyzacji (0-100%),
+ - moc ogrzewania (0-100%).
+
+
+Wykorzystano logikę rozmytą do określenia płynnych wartości mocy
+na podstawie zdefiniowanych reguł i funkcji przynależności.
+
+Biblioteka: scikit-fuzzy (https://github.com/scikit-fuzzy/scikit-fuzzy)
+
+Zakresy dopuszczalnych danych wejściowych:
+-----------------------------------------
+- Temperatura wewnętrzna:   0 - 40 °C
+- Temperatura zewnętrzna:  -10 - 40 °C
+- Wilgotność:               0 - 100 %
+"""
+
 import numpy
 import skfuzzy
 from skfuzzy import control as control
 
 def createFuzzySys():
 
+    """
+    Tworzy i konfiguruje system logiki rozmytej do sterowania klimatyzacją i ogrzewaniem
+
+	Zwraca:
+		tuple: (simulation, (tempInside, tempOutside, humidity, acPower, heaterPower))
+			simulation - obiekt ControlSystemSimulation gotowy do podstawienia wejść i obliczeń,
+			(tempInside, tempOutside, humidity, acPower, heaterPower) - zawiera obiekty Antecedent/Consequent użyte przy budowie systemu.
+	"""
+
+    # Zmienne wejściowe
     tempInside = control.Antecedent(numpy.arange(0, 41, 1), 'tempInside')
     tempOutside = control.Antecedent(numpy.arange(-10, 40, 1), 'tempOutside')
     humidity = control.Antecedent(numpy.arange(0, 101, 1), 'humidity')
 
+    # Zmienne wyjściowe
     acPower = control.Consequent(numpy.arange(0, 101, 1), 'acPower')
     heaterPower = control.Consequent(numpy.arange(0, 101, 1), 'heaterPower')
 
+    # Definicje funkcji przynależności
     tempInside['cold'] = skfuzzy.trapmf(tempInside.universe, [0, 0, 10, 18])
     tempInside['comfortable'] = skfuzzy.trimf(tempInside.universe, [17, 22, 27])
     tempInside['hot'] = skfuzzy.trapmf(tempInside.universe, [25, 30, 40, 40])
@@ -35,6 +73,7 @@ def createFuzzySys():
     heaterPower['high'] = skfuzzy.trimf(heaterPower.universe, [60, 100, 100])
     heaterPower['full'] = skfuzzy.trimf(heaterPower.universe, [100, 100, 100])
 
+    # Reguły logiki rozmytej
     rules = [
         control.Rule(tempInside['cold'], acPower['none']),
         control.Rule(tempInside['comfortable'] & tempOutside['hot'], acPower['medium']),
@@ -58,6 +97,20 @@ def createFuzzySys():
     return simulation, (tempInside, tempOutside, humidity, acPower, heaterPower)
 
 def runSimulation(simulation, tempIn, tempOut, humid):
+
+    """
+    Funkcja wykonuje pojedyńczą symulację systemu logiki rozmytej
+
+	Parametry:
+		simulation (ControlSystemSimulation): przygotowany obiekt symulacji.
+		tempIn (float): temperatura wewnętrzna [C].
+		tempOut (float): temperatura zewnętrzna [C].
+		humid (float): wilgotność [%].
+
+	Zwraca:
+		dict: {'acPower': float, 'heaterPower': float} — wyniki sterowania zaokrąglone do 2 miejsc.
+	"""
+
     simulation.input['tempInside'] = tempIn
     simulation.input['tempOutside'] = tempOut
     simulation.input['humidity'] = humid
@@ -73,6 +126,19 @@ def runSimulation(simulation, tempIn, tempOut, humid):
     }
 
 def getUserInput(prompt, minValue, maxValue):
+
+    """
+    Funkcja pobiera od użytkownika dane sprawdzając zadane wartości min, max
+
+	Parametry:
+		prompt (str): tekst wyświetlany użytkownikowi.
+		minValue (float): minimalna akceptowana wartość.
+		maxValue (float): maksymalna akceptowana wartość.
+
+	Zwraca:
+		value (float): poprawna wartość w zadanym zakresie.
+	"""
+
     while True:
         try:
             value = float(input(prompt))
