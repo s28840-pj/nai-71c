@@ -22,11 +22,29 @@ Zakresy dopuszczalnych danych wejściowych:
 - Temperatura wewnętrzna:   0 - 40 °C
 - Temperatura zewnętrzna:  -10 - 40 °C
 - Wilgotność:               0 - 100 %
+
+
+Zależności:
+-------------
+- Python 3.12+
+- numpy
+- scikit-fuzzy
+- scipy
+- packaging
+- pdoc
+
+Instalacja i uruchomienie:
+    python -m venv fuzzy_env
+    fuzzy_env\Scripts\activate
+    pip install scikit-fuzzy numpy scipy packaging pdoc
+    python .\termoregulacja.py
+
 """
 
 import numpy
 import skfuzzy
 from skfuzzy import control as control
+import csv
 
 def createFuzzySys():
 
@@ -125,6 +143,59 @@ def runSimulation(simulation, tempIn, tempOut, humid):
         "heaterPower": round(heaterValue, 2)
     }
 
+def generateCsv(simulation, selection, tempInput, outputFile="grid.csv"):
+
+    """
+    Funkcja generuje wyniki dla całego przekroju zakresów systemu i zapisuje do pliku CSV
+
+	Parametry:
+		simulation (ControlSystemSimulation): przygotowany obiekt symulacji.
+		selection (str): wybór wersji generowania wyników
+		tempInput (float): stała wartość temperatury [C]
+		outputFile (str): nazwa pliku CSV (default = "grid.csv")
+
+	"""
+        
+    insideRange = range(0,41)
+    outsideRange = range(-10,41)
+    humidityRange = range(0, 101)
+
+    result = []
+
+    result.append(["tempInside", "tempOutside", "humidity", "acPower", "heaterPower"])
+    
+    if selection == "1":
+        for tIn in insideRange:
+            for hum in humidityRange:
+                simulation.input['tempInside'] = tIn
+                simulation.input['tempOutside'] = tempInput
+                simulation.input['humidity'] = hum
+
+                simulation.compute()
+
+                ac = simulation.output.get('acPower', 0.0)
+                heater = simulation.output.get('heaterPower', 0.0)
+
+                result.append([tIn, tempInput, hum, round(ac, 2), round(heater, 2)])
+
+    if selection == "2":
+        for tOut in outsideRange:
+            for hum in humidityRange:
+                simulation.input['tempInside'] = tempInput
+                simulation.input['tempOutside'] = tOut
+                simulation.input['humidity'] = hum
+
+                simulation.compute()
+
+                ac = simulation.output.get('acPower', 0.0)
+                heater = simulation.output.get('heaterPower', 0.0)
+
+                result.append([tempInput, tOut, hum, round(ac, 2), round(heater, 2)])
+        
+    with open(outputFile, mode='w', newline='', encoding='utf-8') as f:
+        writer = csv.writer(f)
+        writer.writerows(result)
+
 def getUserInput(prompt, minValue, maxValue):
 
     """
@@ -152,12 +223,36 @@ def getUserInput(prompt, minValue, maxValue):
 if __name__ == "__main__":
     simulation, _ = createFuzzySys()
 
-    tempIn = getUserInput("Temperatura wewnętrzna [C] (0/40): ", 0, 40)
-    tempOut = getUserInput("Temperatura zewnętrzna [C] (-10/40): ", -10, 40)
-    humid = getUserInput("Wilgotność [%] (0-100): ", 0, 100)
-    
-    result = runSimulation(simulation, tempIn, tempOut, humid)
+    print("Menu")
+    print("1. Uruchom jedną symulację")
+    print("2. Wygeneruj CSV z wszystkimi wynikami")
 
-    print("Wyniki symulacji:")
-    print(f"Klimatyzacja: {result['acPower']} %")
-    print(f"Ogrzewanie: {result['heaterPower']} %")
+    choice = input("Wybierz opcję: ").strip()
+
+    if choice == "1":
+        tempIn = getUserInput("Temperatura wewnętrzna [C] (0/40): ", 0, 40)
+        tempOut = getUserInput("Temperatura zewnętrzna [C] (-10/40): ", -10, 40)
+        humid = getUserInput("Wilgotność [%] (0-100): ", 0, 100)
+        result = runSimulation(simulation, tempIn, tempOut, humid)
+
+        print("Wyniki symulacji:")
+        print(f"Klimatyzacja: {result['acPower']} %")
+        print(f"Ogrzewanie: {result['heaterPower']} %")
+    
+    elif choice == "2":
+        print("Menu")
+        print("1. Wygeneruj dla temperatury zewnętrznej")
+        print("2. Wygeneruj dla temperatury wewnętrznej")
+        choice = input("Wybierz opcję: ").strip()
+        
+        if choice == "1":
+            temp = getUserInput("Podaj temperaturę zewnętrzną [C] (-10/40): ", -10, 40)
+            fileName = input("Podaj nazwę pliku (np. grid.csv): ").strip() or "grid.csv"
+            generateCsv(simulation, choice, temp, fileName)
+        elif choice == "2":
+            temp = getUserInput("Podaj temperaturę wewnętrzną [C] (0/40): ", 0, 40)
+            fileName = input("Podaj nazwę pliku (np. grid.csv): ").strip() or "grid.csv"
+            generateCsv(simulation, choice, temp, fileName)
+
+    else:
+        print("Błędna opcja. Uruchom program ponownie")

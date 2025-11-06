@@ -17,3 +17,6 @@ co automatycznie pobierze wymagane zależności do kompilacji i uruchomienia wsz
 ### Rust
 Wymagany jest kompilator Rust. Najniższa oficjalnie wspierana wersja to 1.89.
 Aby zainstalować Rust, podążaj za instrukcją na [oficjalnej stronie Rust - https://rust-lang.org/learn/get-started/](https://rust-lang.org/learn/get-started/).
+### Python
+Najniższa wymagana wersja to Python 3.12. 
+By pobrać i zainstalować [podążaj za instrukcjami na oficjalnej stronie Python - https://wiki.python.org/moin/BeginnersGuide](https://wiki.python.org/moin/BeginnersGuide)
