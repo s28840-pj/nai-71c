@@ -39,6 +39,9 @@ Instalacja i uruchomienie:
     pip install scikit-fuzzy numpy scipy packaging pdoc
     python .\termoregulacja.py
 
+Generowanie dokumentacji:
+    pdoc -d markdown .\termoregulacja.py
+
 """
 
 import numpy
