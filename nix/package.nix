@@ -43,6 +43,8 @@ rustPlatform.buildRustPackage {
         ../01-warcaby/src
         ../01-warcaby/Cargo.toml
         ../01-warcaby/README.md
+        ../03-rekomendacje/src
+        ../03-rekomendacje/Cargo.toml
       ];
     };
 

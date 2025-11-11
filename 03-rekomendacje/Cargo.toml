@@ -1,0 +1,15 @@
+[package]
+name = "rekomendacje"
+version = "0.1.0"
+edition = "2024"
+publish = false
+default-run = "rekomendacje"
+
+[dependencies]
+discorec = "0.2.1"
+indicatif = "0.18.3"
+inquire = "0.9.1"
+reqwest = { version = "0.12.24", default-features = false, features = ["rustls-tls", "charset", "http2", "json", "blocking"] }
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.145"
+strsim = "0.11.1"
