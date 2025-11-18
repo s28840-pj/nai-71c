@@ -1,3 +1,25 @@
+//! # Normalizator danych
+//! Skrypt do normalizacji danych dla [silnika rekomendacji](https://s28840-pj.github.io/nai-71c/rekomendacje)
+//!
+//! Przez normalizację danych rozumiemy zebranie danych o wszystkich filmach czy serialach,
+//! które zostały wymienione w zbiorze danych, oraz ujednolicenie odniesień do tych tytułów.
+//! (Każdy wpisywał nazwy po swojemu, np "mr. robot" vs "mrrobot")
+//!
+//! ## Użycie
+//! Aby użyć skryptu potrzebujemy co najmniej jeden plik CSV, w pokazanym poniżej formacie:
+//! ```csv
+//! Imię i nazwisko	Film 1	Ocena filmu 1	Film 2	Ocena filmu 2	...
+//! ```
+//! Pola *muszą* być rozdzielone tabulatorami, a także *nie może* pojawić się nagłówek.
+//!
+//! Następnie, skrypt może być uruchomiony w podany poniżej sposób:
+//! ```bash
+//! normalize dane.csv ...dane-dodatkowe.csv folder-wyjsciowy
+//! ```
+//! Gdzie dane-dodatkowe.csv to dowolna ilość (może być 0) dodatkowych plików, w takim samym formacie,
+//! które mają służyć jedynie do trenowania silnika.
+//! Użytkownicy podani w dodatkowych plikach nie zostaną wyświetleni w finalnym programie `rekomendacje`.
+
 use indicatif::ProgressBar;
 use inquire::{Select, prompt_text};
 use reqwest::{Url, blocking as r};
