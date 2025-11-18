@@ -14,4 +14,8 @@ mkShell {
     clippy
     rustfmt
   ];
+
+  shellHook = ''
+    export REKOMENDACJE_DATA_DIR="$(readlink -f 03-rekomendacje)/clean"
+  '';
 }

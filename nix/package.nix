@@ -48,5 +48,7 @@ rustPlatform.buildRustPackage {
       ];
     };
 
+  REKOMENDACJE_DATA_DIR = ../03-rekomendacje/clean;
+
   passthru.static = if stdenv.isLinux then linuxStatic else darwinStatic;
 }

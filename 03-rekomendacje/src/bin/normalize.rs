@@ -1,10 +1,10 @@
 use indicatif::ProgressBar;
-use inquire::Select;
+use inquire::{Select, prompt_text};
 use reqwest::{Url, blocking as r};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use std::{
     collections::HashMap,
-    fmt::{Debug, Display, Write},
+    fmt::{Debug, Write},
     fs,
     iter::{Fuse, FusedIterator},
     mem::MaybeUninit,
@@ -13,27 +13,10 @@ use std::{
 };
 use strsim::normalized_damerau_levenshtein;
 
-#[derive(Debug, Serialize)]
-struct Rating {
-    movie: String,
-    rating: u32,
-}
-
-impl Rating {
-    fn new(movie: String, rating: u32) -> Self {
-        Rating { movie, rating }
-    }
-}
-
-#[derive(Debug, Serialize)]
-struct User {
-    #[allow(unused)]
-    name: String,
-    ratings: Vec<Rating>,
-}
+use rekomendacje::{ImdbTitle, Rating, SelectOption, User};
 
 fn bail_usage() -> ! {
-    eprintln!(r#"usage: normalize [input file] [output directory]"#);
+    eprintln!(r#"usage: normalize [input file] [...auxilary input files] [output directory]"#);
     exit(1);
 }
 
@@ -47,19 +30,10 @@ fn unwrap_usage<T, E: Debug>(res: Result<T, E>) -> T {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(rename_all = "camelCase")]
-struct ImdbTitle {
-    id: String,
-    primary_title: String,
-    original_title: String,
-    #[serde(default)]
-    start_year: Option<u32>,
-}
-
 #[derive(Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 struct ImdbSearchResult {
+    #[serde(default)]
     titles: Vec<ImdbTitle>,
 }
 
@@ -68,29 +42,11 @@ fn is_almost_equal(a: &str, b: &str) -> bool {
     d >= 0.9
 }
 
-struct SelectOption<T> {
-    inner: T,
-    fmt: fn(&T) -> String,
-}
-
-impl<T> SelectOption<T> {
-    fn new(inner: T, fmt: fn(&T) -> String) -> Self {
-        Self { inner, fmt }
-    }
-}
-
-impl<T> Display for SelectOption<T> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let s = (self.fmt)(&self.inner);
-        write!(f, "{s}")
-    }
-}
-
 fn prompt_movie<'a>(
     name: &str,
     potential: impl Iterator<Item = &'a ImdbTitle>,
     bar: &ProgressBar,
-) -> ImdbTitle {
+) -> Option<ImdbTitle> {
     let prompt = format!("Found multiple matches for {name:?}");
 
     let options = potential
@@ -108,19 +64,16 @@ fn prompt_movie<'a>(
     let mut result = Option::None;
 
     bar.suspend(|| {
-        result = Some(
-            Select::new(&prompt, options)
-                .prompt()
-                .unwrap()
-                .inner
-                .clone(),
-        );
+        result = Select::new(&prompt, options)
+            .prompt()
+            .ok()
+            .map(|s| s.into_inner().clone());
     });
 
-    result.unwrap()
+    result
 }
 
-fn find_og_title(name: &str, bar: &ProgressBar) -> ImdbTitle {
+fn find_og_title(name: &str, bar: &ProgressBar) -> Option<ImdbTitle> {
     let url = Url::parse_with_params(
         "https://api.imdbapi.dev/search/titles",
         &[("query", name), ("limit", "10")],
@@ -129,9 +82,9 @@ fn find_og_title(name: &str, bar: &ProgressBar) -> ImdbTitle {
     let response: ImdbSearchResult = r::get(url).unwrap().json().unwrap();
 
     if response.titles.len() == 1 {
-        return response.titles[0].clone();
+        return Some(response.titles[0].clone());
     } else if response.titles.is_empty() {
-        panic!("no potential matches found for {name:?}");
+        return None;
     }
 
     let exactly_the_same: Vec<_> = response
@@ -144,7 +97,7 @@ fn find_og_title(name: &str, bar: &ProgressBar) -> ImdbTitle {
         .collect();
 
     if exactly_the_same.len() == 1 {
-        return exactly_the_same[0].clone();
+        return Some(exactly_the_same[0].clone());
     }
 
     let basically_the_same: Vec<_> = response
@@ -157,47 +110,28 @@ fn find_og_title(name: &str, bar: &ProgressBar) -> ImdbTitle {
         .collect();
 
     if basically_the_same.len() == 1 {
-        return basically_the_same[0].clone();
+        return Some(basically_the_same[0].clone());
     }
 
     prompt_movie(name, response.titles.iter(), bar)
 }
 
-fn main() {
-    let mut args = std::env::args();
-    args.next().unwrap();
-
-    let mut get_arg = || {
-        if let Some(v) = args.next() {
-            v
-        } else {
-            bail_usage()
-        }
-    };
-
-    let input = get_arg();
-    let output = get_arg();
-
-    let raw = unwrap_usage(fs::read_to_string(input));
-    unwrap_usage(fs::create_dir_all(&output));
-
-    let mut movies = HashMap::new();
+fn users_from_csv(csv: &str, movies: &mut HashMap<String, String>) -> Vec<User> {
     let mut users = Vec::new();
 
-    let lines = raw.lines().filter_map(|line| {
+    let lines = csv.lines().filter_map(|line| {
         let line = line.trim();
         if line.is_empty() { None } else { Some(line) }
     });
 
     for line in lines {
-        let mut components = line.split('\t');
+        let mut components = line.split('\t').map(|s| s.trim()).filter(|s| !s.is_empty());
         let name = components.next().expect("format to be correct");
-        let name = name.trim().to_string();
+        let name = name.to_string();
 
         let ratings = components
             .arr_chunks()
             .map(|[movie_name, rating]| {
-                let movie_name = movie_name.trim();
                 let new_id = movies.len();
                 let movie_id = movies
                     .entry(movie_name.to_lowercase())
@@ -211,19 +145,67 @@ fn main() {
         users.push(User { name, ratings });
     }
 
+    users
+}
+
+fn main() {
+    let mut args = std::env::args().skip(1);
+
+    if args.len() < 2 {
+        bail_usage();
+    }
+    let aux_count = args.len() - 2;
+    let mut get_arg = || {
+        if let Some(v) = args.next() {
+            v
+        } else {
+            bail_usage()
+        }
+    };
+
+    let input = get_arg();
+    let aux: Vec<_> = (0..aux_count).map(|_| get_arg()).collect();
+    let output = get_arg();
+
+    let raw = unwrap_usage(fs::read_to_string(input));
+    unwrap_usage(fs::create_dir_all(&output));
+
+    let aux = aux
+        .into_iter()
+        .map(|aux_file| unwrap_usage(fs::read_to_string(aux_file)))
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    let mut movies = HashMap::new();
+    let mut users = users_from_csv(&raw, &mut movies);
+    let mut aux_users = users_from_csv(&aux, &mut movies);
+
     let mut normalized_movies = Vec::<ImdbTitle>::new();
 
     let bar = ProgressBar::new(movies.len() as _);
     bar.enable_steady_tick(Duration::from_millis(100));
 
     for (name, id) in movies.iter() {
-        let title = find_og_title(name, &bar);
+        let title = match find_og_title(name, &bar) {
+            Some(og) => og,
+            None => {
+                let mut new_name = None;
+                bar.suspend(|| {
+                    new_name = Some(prompt_text(format!(
+                        "No potential matches found for {name:?}. Enter alternative title you want to look up:"
+                    ))
+                    .unwrap());
+                });
+                let new_name = new_name.unwrap();
+                find_og_title(&new_name, &bar).unwrap()
+            }
+        };
         let normal_movie_id = title.id.clone();
         if !normalized_movies.iter().any(|movie| movie.id == title.id) {
             normalized_movies.push(title);
         }
 
-        for user in users.iter_mut() {
+        for user in users.iter_mut().chain(aux_users.iter_mut()) {
             for rating in user.ratings.iter_mut() {
                 if &rating.movie == id {
                     rating.movie = normal_movie_id.clone();
@@ -245,6 +227,12 @@ fn main() {
     fs::write(
         format!("{output}/users.json"),
         serde_json::to_string(&users).unwrap(),
+    )
+    .unwrap();
+
+    fs::write(
+        format!("{output}/extra_users.json"),
+        serde_json::to_string(&aux_users).unwrap(),
     )
     .unwrap();
 }
