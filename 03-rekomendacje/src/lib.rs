@@ -4,7 +4,7 @@ use std::fmt::Display;
 
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Rating {
     pub movie: String,
     pub rating: u32,
@@ -16,7 +16,7 @@ impl Rating {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct User {
     #[allow(unused)]
     pub name: String,
@@ -28,9 +28,29 @@ pub struct User {
 pub struct ImdbTitle {
     pub id: String,
     pub primary_title: String,
-    pub original_title: String,
+    #[serde(default)]
+    pub original_title: Option<String>,
+    #[serde(default)]
+    pub primary_image: Option<ImdbImage>,
+    #[serde(default)]
+    pub directors: Vec<ImdbName>,
+    #[serde(default)]
+    pub plot: Option<String>,
     #[serde(default)]
     pub start_year: Option<u32>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ImdbName {
+    pub id: String,
+    pub display_name: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ImdbImage {
+    pub url: String,
 }
 
 pub struct SelectOption<T> {

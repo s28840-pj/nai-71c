@@ -114,7 +114,7 @@ fn find_og_title(name: &str, bar: &ProgressBar) -> Option<ImdbTitle> {
         .iter()
         .filter(|title| {
             title.primary_title.to_lowercase() == name
-                || title.original_title.to_lowercase() == name
+                || title.original_title.as_deref().is_some_and(|og| og == name)
         })
         .collect();
 
@@ -127,7 +127,10 @@ fn find_og_title(name: &str, bar: &ProgressBar) -> Option<ImdbTitle> {
         .iter()
         .filter(|title| {
             is_almost_equal(&title.primary_title, name)
-                || is_almost_equal(&title.original_title, name)
+                || title
+                    .original_title
+                    .as_deref()
+                    .is_some_and(|og| is_almost_equal(og, name))
         })
         .collect();
 

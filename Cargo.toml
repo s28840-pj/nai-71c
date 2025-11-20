@@ -1,3 +1,19 @@
 [workspace]
 resolver = "3"
 members = ["01-warcaby", "03-rekomendacje"]
+
+[workspace.dependencies]
+color-eyre = "0.6.5"
+crossterm = "0.29.0"
+minimax = "0.5.4"
+ratatui = "0.29.0"
+discorec = "0.2.1"
+indicatif = "0.18.3"
+inquire = "0.9.1"
+reqwest = { version = "0.12.24", default-features = false, features = ["rustls-tls", "charset", "http2", "json", "blocking"] }
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.145"
+strsim = "0.11.1"
+ratatui-image = "8.0.2"
+directories = "6.0.0"
+image = "0.25.8"
