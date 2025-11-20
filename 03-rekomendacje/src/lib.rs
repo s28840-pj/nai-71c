@@ -28,9 +28,29 @@ pub struct User {
 pub struct ImdbTitle {
     pub id: String,
     pub primary_title: String,
-    pub original_title: String,
+    #[serde(default)]
+    pub original_title: Option<String>,
+    #[serde(default)]
+    pub primary_image: Option<ImdbImage>,
+    #[serde(default)]
+    pub directors: Vec<ImdbName>,
+    #[serde(default)]
+    pub plot: Option<String>,
     #[serde(default)]
     pub start_year: Option<u32>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ImdbName {
+    pub id: String,
+    pub display_name: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ImdbImage {
+    pub url: String,
 }
 
 pub struct SelectOption<T> {
