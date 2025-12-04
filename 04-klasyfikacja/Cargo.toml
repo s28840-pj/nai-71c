@@ -1,0 +1,11 @@
+[package]
+name = "klasyfikacja"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+linfa = "0.8.0"
+linfa-datasets = { version = "0.8.0", features = ["winequality"] }
+linfa-svm = "0.8.0"
+linfa-trees = "0.8.0"
+ndarray = "0.16"

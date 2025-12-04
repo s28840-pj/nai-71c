@@ -40,12 +40,19 @@ rustPlatform.buildRustPackage {
       fileset = unions [
         ../Cargo.toml
         ../Cargo.lock
+
         ../01-warcaby/src
         ../01-warcaby/Cargo.toml
         ../01-warcaby/README.md
+
         ../03-rekomendacje/src
         ../03-rekomendacje/Cargo.toml
         ../03-rekomendacje/README.md
+
+        ../04-klasyfikacja/src
+        ../04-klasyfikacja/Cargo.toml
+        ../04-klasyfikacja/README.md
+        ../04-klasyfikacja/heart-disease.csv
       ];
     };
 
