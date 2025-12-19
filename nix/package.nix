@@ -53,6 +53,10 @@ rustPlatform.buildRustPackage {
         ../04-klasyfikacja/Cargo.toml
         ../04-klasyfikacja/README.md
         ../04-klasyfikacja/heart-disease.csv
+
+        ../05-neural-net/src
+        ../05-neural-net/Cargo.toml
+        ../05-neural-net/README.md
       ];
     };
 

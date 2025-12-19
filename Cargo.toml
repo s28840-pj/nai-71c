@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["01-warcaby", "03-rekomendacje", "04-klasyfikacja"]
+members = ["01-warcaby", "03-rekomendacje", "04-klasyfikacja", "05-neural-net"]
 
 [workspace.dependencies]
 color-eyre = "0.6.5"
