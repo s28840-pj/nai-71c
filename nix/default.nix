@@ -4,6 +4,7 @@ let
     overlays = [
       (final: prev: {
         nai = final.callPackage ./package.nix { };
+        ad-watcher = final.callPackage ./web.nix {};
       })
     ];
   };

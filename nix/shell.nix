@@ -4,7 +4,7 @@
   cargo,
   rust-analyzer,
   clippy,
-  rustfmt,
+  rustfmt, pnpm, nodejs, nodePackages,
 }:
 mkShell {
   packages = [
@@ -13,6 +13,9 @@ mkShell {
     rust-analyzer
     clippy
     rustfmt
+    pnpm
+    nodejs
+    nodePackages.svelte-language-server
   ];
 
   shellHook = ''
