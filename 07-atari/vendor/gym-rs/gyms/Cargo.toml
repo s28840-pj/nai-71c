@@ -1,0 +1,35 @@
+[package]
+name = "gyms"
+version = "0.1.0"
+authors = ["elbaro <elbaro@users.noreply.github.com>"]
+edition = "2018"
+description = "Gym for Reinforcement Learning"
+repository = "https://github.com/elbaro/gym-rs"
+license = "MIT"
+keywords = ["learning", "rl", "ml", "gym"]
+categories = ["science", "simulation", "emulators"]
+
+[features]
+default = ["atari"]
+atari = ["atari-env"]
+# openspiel = ["openspiel-env"]
+
+[dependencies]
+anyhow = "1.0.40"
+atari-env = { version = "0.1.1", path = "../atari-env", optional = true }
+colored = "2.0.0"
+# openspiel-env = { version = "0.1.0", path = "../openspiel-env", optional = true }
+gym-core = { version = "0.1.0", path = "../gym-core" }
+rand = "0.8.3"
+
+[dev-dependencies]
+clap = {version="3.0.0-beta.2", features=["derive"]}
+color-backtrace = "0.5.0"
+indicatif = "0.15.0"
+inline-python = "0.6.0"
+ndarray = "0.15.1"
+num = "0.4.0"
+pixels = "0.2.0"
+rand = "0.8.3"
+tch = "0.4.0"
+winit = "0.24.0"
