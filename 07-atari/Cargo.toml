@@ -1,0 +1,20 @@
+[package]
+name = "atari"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+border-async-trainer = "0.0.8"
+border-atari-env = { version = "0.0.8", features = ["tch", "sdl"] }
+border-core = "0.0.8"
+border-mlflow-tracking = "0.0.8"
+border-tch-agent = "0.0.8"
+border-tensorboard = "0.0.8"
+tch = "0.16.1"
+
+[workspace]
+
+[patch.crates-io]
+tch.path = "vendor/tch-rs"
+torch-sys.path = "vendor/tch-rs/torch-sys"
+atari-env-sys.path = "vendor/gym-rs/atari-env-sys"

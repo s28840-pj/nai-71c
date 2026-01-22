@@ -1,0 +1,20 @@
+[package]
+name = "atari-env-sys"
+version = "0.1.0"
+authors = ["elbaro <elbaro@users.noreply.github.com>"]
+edition = "2018"
+description = "FFI bindings for ALE (Arcade Learning Environment)"
+repository = "https://github.com/elbaro/gym-rs"
+license = "GPL-2.0-or-later"
+keywords = ["learning", "rl", "ml", "gym", "atari"]
+categories = ["science", "simulation", "external-ffi-bindings", "emulators"]
+
+[features]
+default = ["sdl"]
+sdl = []
+
+[dependencies]
+
+[build-dependencies]
+bindgen = "0.57.0"
+cmake = "0.1.45"

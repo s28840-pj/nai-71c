@@ -1,4 +1,8 @@
-{stdenvNoCC, nodejs, pnpm }:
+{
+  stdenvNoCC,
+  nodejs,
+  pnpm,
+}:
 
 stdenvNoCC.mkDerivation (finalAttrs: {
   pname = "ad-watcher";
